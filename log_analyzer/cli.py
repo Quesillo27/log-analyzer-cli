@@ -1,5 +1,6 @@
 """CLI de log-analyzer usando Click."""
 
+import gzip
 import re
 import sys
 import json
@@ -35,7 +36,14 @@ def _parse_datetime(value: str | None) -> datetime | None:
 
 
 def _read_lines(path: Path) -> list[str]:
-    return path.read_text(errors="replace").splitlines()
+    return _read_text(path).splitlines()
+
+
+def _read_text(path: Path) -> str:
+    if path.suffix == ".gz":
+        with gzip.open(path, "rt", encoding="utf-8", errors="replace") as handle:
+            return handle.read()
+    return path.read_text(encoding="utf-8", errors="replace")
 
 
 def _resolve_format(fmt: str, lines: list[str]) -> str:
@@ -165,7 +173,7 @@ def stats_cmd(logfile, output):
     """Resumen rápido de un archivo de log (líneas, tamaño, fechas)."""
     import re as _re
     path = Path(logfile)
-    content = path.read_text(errors="replace")
+    content = _read_text(path)
     lines = content.splitlines()
     size_kb = path.stat().st_size / 1024
 

@@ -4,6 +4,8 @@
 
 Herramienta de línea de comandos para parsear y analizar logs de **nginx** (access y error) y **Docker** con estadísticas coloridas en terminal. Detecta el formato automáticamente.
 
+Tambien soporta logs comprimidos en `.gz` de forma transparente, util para archivos rotados como `access.log.1.gz` o `app.log.gz`.
+
 ## Instalación en 3 comandos
 
 ```bash
@@ -36,6 +38,10 @@ python3 analyzer.py search access.log "ECONNREFUSED" --context 2
 # Buscar con salida JSON o solo el conteo
 python3 analyzer.py search app.log "ERROR" --output json
 python3 analyzer.py search app.log "ERROR" --output count
+
+# Leer logs rotados/comprimidos directamente
+python3 analyzer.py analyze /var/log/nginx/access.log.1.gz --format nginx
+python3 analyzer.py tail /var/log/myapp/app.log.gz --output json
 ```
 
 ## Comandos disponibles

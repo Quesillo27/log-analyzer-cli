@@ -1,5 +1,6 @@
 """Tests para log-analyzer-cli — cobertura completa de parsers, analyzers y CLI."""
 
+import gzip
 import json
 import sys
 from pathlib import Path
@@ -65,6 +66,14 @@ def nginx_log_file(tmp_path):
 def docker_log_file(tmp_path):
     f = tmp_path / "app.log"
     f.write_text("\n".join(DOCKER_LOG_SAMPLE) + "\n")
+    return str(f)
+
+
+@pytest.fixture
+def docker_gz_log_file(tmp_path):
+    f = tmp_path / "app.log.gz"
+    with gzip.open(f, "wt", encoding="utf-8") as handle:
+        handle.write("\n".join(DOCKER_LOG_SAMPLE) + "\n")
     return str(f)
 
 
@@ -431,6 +440,13 @@ def test_cli_analyze_docker(docker_log_file):
     assert result.exit_code == 0
 
 
+def test_cli_analyze_docker_gz(docker_gz_log_file):
+    runner = CliRunner()
+    result = runner.invoke(cli, ["analyze", docker_gz_log_file, "--format", "docker"])
+    assert result.exit_code == 0
+    assert "Procesadas 7 líneas" in result.output
+
+
 def test_cli_analyze_docker_level_filter(docker_log_file):
     runner = CliRunner()
     result = runner.invoke(cli, ["analyze", docker_log_file, "--format", "docker", "--level", "ERROR"])
@@ -507,10 +523,29 @@ def test_cli_stats_json(nginx_log_file):
     assert data["lines"] == 6
 
 
+def test_cli_stats_json_gz(docker_gz_log_file):
+    runner = CliRunner()
+    result = runner.invoke(cli, ["stats", docker_gz_log_file, "--output", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["file"] == "app.log.gz"
+    assert data["lines"] == 7
+    assert data["format"] == "docker"
+
+
 def test_cli_tail_plain(nginx_log_file):
     runner = CliRunner()
     result = runner.invoke(cli, ["tail", nginx_log_file, "--lines", "3"])
     assert result.exit_code == 0
+
+
+def test_cli_tail_json_gz(docker_gz_log_file):
+    runner = CliRunner()
+    result = runner.invoke(cli, ["tail", docker_gz_log_file, "--lines", "2", "--output", "json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert len(data) == 2
+    assert "Out of memory" in data[-1]
 
 
 def test_cli_tail_json(nginx_log_file):
@@ -539,6 +574,13 @@ def test_cli_search_basic(docker_log_file):
     result = runner.invoke(cli, ["search", docker_log_file, "ECONNREFUSED"])
     assert result.exit_code == 0
     assert "2 coincidencias" in result.output
+
+
+def test_cli_search_count_gz(docker_gz_log_file):
+    runner = CliRunner()
+    result = runner.invoke(cli, ["search", docker_gz_log_file, "ERROR", "--output", "count"])
+    assert result.exit_code == 0
+    assert result.output.strip() == "2"
 
 
 def test_cli_search_count_output(docker_log_file):
